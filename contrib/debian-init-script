@@ -1,0 +1,72 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          encore
+# Required-Start:    $local_fs $network nginx postgresql
+# Required-Stop:     $local_fs $network nginx postgresql
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: starts the Encore Web server for measuring Web censorship
+# Description:       starts the Encore Web server for measuring Web censorship using start-stop-daemon
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+NAME=encore
+DESC=encore
+USER=encore
+USERHOME=$(eval echo ~encore)
+DAEMON=$USERHOME/go/bin/encore
+if [ -z "$ENCORE_PORT" ]; then
+	PORT=8080
+else
+	PORT=$ENCORE_PORT
+fi
+
+test -x $DAEMON || exit 0
+
+set -e
+
+. /lib/lsb/init-functions
+
+case "$1" in
+	start)
+		echo -n "Starting $DESC: "
+		start-stop-daemon --start --quiet --background \
+			--pidfile /var/run/$NAME-$PORT.pid --make-pidfile \
+			--user $USER --chuid $USER \
+			--exec $DAEMON -- \
+				-cube_export=false \
+				-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
+				-logfile=${USERHOME}/$NAME-$PORT.log \
+				-listen_address="127.0.0.1:$PORT" \
+				-server_url="//encore.noise.gatech.edu" \
+				-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
+				-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
+				-static_path=$USERHOME/go/src/github.com/sburnett/encore/static || true
+		echo "$NAME."
+		;;
+
+	stop)
+		echo -n "Stopping $DESC: "
+		start-stop-daemon --stop --quiet --pidfile /var/run/$NAME-$PORT.pid \
+		    --exec $DAEMON --user $USER || true
+		echo "$NAME."
+		;;
+
+	restart)
+		echo -n "Restarting $DESC: "
+		$0 stop
+		sleep 1
+		$0 start
+		;;
+
+	status)
+		status_of_proc -p /var/run/$NAME-$PORT.pid "$DAEMON" encore && exit 0 || exit $?
+		;;
+	*)
+		echo "Usage: $NAME {start|stop|restart|status}" >&2
+		exit 1
+		;;
+esac
+
+exit 0
