@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"flag"
 	"log"
 	"time"
 
@@ -13,6 +14,9 @@ type postgresStore struct {
 	db *sql.DB
 }
 
+
+schedulingInterval := flag.Duration("scheduling_interval", "1m", "run the scheduler this often.")
+
 func openPostgres(db *sql.DB) Store {
 	return &postgresStore{
 		db: db,
@@ -21,6 +25,49 @@ func openPostgres(db *sql.DB) Store {
 
 func (store *postgresStore) Close() {
 	store.db.Close()
+}
+
+func (store *postgresStore) ExpireSchedules() {
+	stmt, err := store.db.Prepare("DELETE FROM currently_scheduled WHERE expiration_time < now() OR measurements_remaining <= 0")
+	if err != nil {
+		log.Fatalf("error preparing scheduler expiration statement: %v", err)
+	}
+	
+	for now := range time.Tick(schedulingInterval) {
+		if _, err := stmt.Execute(); err != nil {
+			log.Printf("error deleting old schedules")
+		}
+
+		tx, err := sql.Begin()
+		if err != nil {
+			log.Printf("error starting transaction: %v", err)
+		}
+		row, err := tx.QueryRow("SELECT concurrent_schedules - count(1) FROM scheduler_configuration, currently_scheduled")
+		var concurrentSchedules int
+		if err := row.Scan(&concurrentSchedules); err != nil {
+			log.Printf("error counting scheduled tasks")
+			continue
+		}
+		insertedRow, err := tx.QueryRow("INSERT INTO currently_scheduled (SELECT id, priority, now() + max_duration_seconds * interval '1 second', max_measurements WHERE priority > maximum_priority_scheduled LIMIT $1) RETURNING max(priority)", concurrentSchedules)
+		if err != nil {
+			log.Printf("error inserting new schedules: %v", err)
+			continue
+		}
+		if err := insertedRow.Scan(&lastPriority); err != nil {
+		}
+		row, err := tx.QueryRow("SELECT concurrent_schedules - count(1) FROM scheduler_configuration, currently_scheduled")
+		var concurrentSchedules int
+		if err := row.Scan(&concurrentSchedules); err != nil {
+			log.Printf("error counting scheduled tasks")
+			continue
+		}
+		if _, err := tx.Exec("INSERT INTO currently_scheduled SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements LIMIT $1", concurrentSchedules); err != nil {
+			log.Printf("error inserting new schedules")
+			continue
+		}
+		if _, err := tx.Exec("UPDATE scheduler_configuration SET maximum_priority_scheduled = 
+		tx.Commit()
+	}
 }
 
 func (store *postgresStore) Schedules() <-chan *Schedule {

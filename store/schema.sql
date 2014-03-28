@@ -12,6 +12,16 @@ CREATE TABLE schedules (
 	max_rate_per_second integer,
 	parameters hstore
 );
+CREATE TABLE currently_scheduled (
+	schedule integer references schedules(id);
+	expiration_time timestamp;
+	measurements_remaining integer;
+	priority integer;
+);
+CREATE TABLE scheduler_configuration (
+	concurrent_schedules integer;
+	maximum_priority_scheduled integer;
+);
 CREATE TABLE already_scheduled (
 	schedule integer references schedules(id)
 );
