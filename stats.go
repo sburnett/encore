@@ -9,7 +9,6 @@ import (
 	"net/url"
 
 	"github.com/sburnett/encore/store"
-	_ "github.com/wayn3h0/goi18n/country/resource/en_us"
 )
 
 type statsState struct {
