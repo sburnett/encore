@@ -28,40 +28,52 @@ set -e
 
 . /lib/lsb/init-functions
 
+start_encore() {
+	PORT=$1
+	start-stop-daemon --start --quiet --background \
+		--pidfile /var/run/$NAME-$PORT.pid --make-pidfile \
+		--user $USER --chuid $USER \
+		--exec $DAEMON -- \
+			-cube_export=false \
+			-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
+			-logfile=${USERHOME}/$NAME-$PORT.log \
+			-listen_address="127.0.0.1:$PORT" \
+			-server_url="//encore.noise.gatech.edu" \
+			-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
+			-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
+			-static_path=$USERHOME/go/src/github.com/sburnett/encore/static || true
+	echo "$NAME: port $PORT"
+}
+
+stop_encore() {
+	PORT=$1
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME-$PORT.pid \
+	--exec $DAEMON --user $USER || true
+	echo "$NAME: port $PORT"
+}
+
 case "$1" in
 	start)
 		echo -n "Starting $DESC: "
 		for PORT in $PORTS; do
-			start-stop-daemon --start --quiet --background \
-				--pidfile /var/run/$NAME-$PORT.pid --make-pidfile \
-				--user $USER --chuid $USER \
-				--exec $DAEMON -- \
-					-cube_export=false \
-					-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
-					-logfile=${USERHOME}/$NAME-$PORT.log \
-					-listen_address="127.0.0.1:$PORT" \
-					-server_url="//encore.noise.gatech.edu" \
-					-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
-					-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
-					-static_path=$USERHOME/go/src/github.com/sburnett/encore/static || true
-			echo "$NAME: port $PORT"
+			start_encore $PORT
 		done
 		;;
 
 	stop)
 		echo -n "Stopping $DESC: "
 		for PORT in $PORTS; do
-			start-stop-daemon --stop --quiet --pidfile /var/run/$NAME-$PORT.pid \
-			--exec $DAEMON --user $USER || true
-			echo "$NAME: port $PORT"
+			stop_encore $PORT
 		done
 		;;
 
 	restart)
 		echo -n "Restarting $DESC: "
-		$0 stop
-		sleep 1
-		$0 start
+		for PORT in $PORTS; do
+			stop_encore $PORT
+			sleep 1
+			start_encore $PORT
+		done
 		;;
 
 	status)
