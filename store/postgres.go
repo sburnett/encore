@@ -142,6 +142,9 @@ func (store *postgresStore) TaskGroups() <-chan []Task {
 					task.Parameters = parameters.Map
 					taskGroup = append(taskGroup, task)
 				}
+				if err := rows.Close(); err != nil {
+					log.Printf("error closing rows after selecting matching tasks: %v", err)
+				}
 
 				if taskGroup == nil {
 					log.Printf("skipping schedule with no matching tasks: id %v", id)
@@ -149,6 +152,9 @@ func (store *postgresStore) TaskGroups() <-chan []Task {
 				}
 
 				taskGroups = append(taskGroups, taskGroup)
+			}
+			if err := rows.Close(); err != nil {
+				log.Printf("error closing rows after refreshing schedules: %v", err)
 			}
 			return taskGroups
 		}
@@ -185,6 +191,10 @@ func (store *postgresStore) WriteTasks(tasks <-chan *Task) {
 		parameters := hstore.Hstore{task.Parameters}
 		tasksStmt.Exec(parameters)
 	}
+
+	if err := tasksStmt.Close(); err != nil {
+		log.Printf("error while closing tasks insert statement: %v", err)
+	}
 }
 
 func (store *postgresStore) WriteQueries(queries <-chan *Query) {
@@ -199,6 +209,10 @@ func (store *postgresStore) WriteQueries(queries <-chan *Query) {
 			log.Printf("error inserting query: %v", err)
 			continue
 		}
+	}
+
+	if err := queriesStmt.Close(); err != nil {
+		log.Printf("error while closing queries insert statement: %v", err)
 	}
 }
 
@@ -219,6 +233,9 @@ func (store *postgresStore) Queries() <-chan *Query {
 				log.Printf("error reading query: %v", err)
 			}
 			queries <- &query
+		}
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows after reading queries: %v", err)
 		}
 	}()
 	return queries
@@ -242,6 +259,9 @@ func (store *postgresStore) UnparsedQueries() <-chan *Query {
 			}
 			queries <- &query
 		}
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows after reading unparsed queries: %v", err)
+		}
 	}()
 	return queries
 }
@@ -258,6 +278,10 @@ func (store *postgresStore) WriteParsedQueries(parsedQueries <-chan *ParsedQuery
 			log.Printf("error inserting parsed query: %v", err)
 		}
 	}
+
+	if err := insertIntoQueries.Close(); err != nil {
+		log.Printf("error while closing parsed queries insert statement: %v", err)
+	}
 }
 
 func (store *postgresStore) WriteResults(results <-chan *Result) {
@@ -273,6 +297,10 @@ func (store *postgresStore) WriteResults(results <-chan *Result) {
 			continue
 		}
 	}
+
+	if err := resultsStmt.Close(); err != nil {
+		log.Printf("error while closing results insert statement: %v", err)
+	}
 }
 
 func (store *postgresStore) Results() <-chan *Result {
@@ -284,13 +312,15 @@ func (store *postgresStore) Results() <-chan *Result {
 		if err != nil {
 			log.Fatalf("error selecting results: %v", err)
 		}
-		defer rows.Close()
 		for rows.Next() {
 			var result Result
 			if err := rows.Scan(&result.Id, &result.Timestamp, &result.RemoteAddr, &result.RawRequest); err != nil {
 				log.Printf("error scanning result: %v", err)
 			}
 			results <- &result
+		}
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows after selecting results: %v", err)
 		}
 	}()
 	return results
@@ -305,13 +335,15 @@ func (store *postgresStore) UnparsedResults() <-chan *Result {
 		if err != nil {
 			log.Fatalf("error selecting results: %v", err)
 		}
-		defer rows.Close()
 		for rows.Next() {
 			var result Result
 			if err := rows.Scan(&result.Id, &result.Timestamp, &result.RemoteAddr, &result.RawRequest); err != nil {
 				log.Printf("error scanning result: %v", err)
 			}
 			results <- &result
+		}
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows after selecting results: %v", err)
 		}
 	}()
 	return results
@@ -328,6 +360,10 @@ func (store *postgresStore) WriteParsedResults(parsedResults <-chan *ParsedResul
 		if _, err := insertIntoResults.Exec(parsedResult.Result, parsedResult.MeasurementId, parsedResult.Timestamp, parsedResult.Outcome, parsedResult.Origin, parsedResult.Referer, parsedResult.ClientIp.String(), parsedResult.ClientLocation, parsedResult.UserAgent); err != nil {
 			log.Printf("error inserting parsed result: %v", err)
 		}
+	}
+
+	if err := insertIntoResults.Close(); err != nil {
+		log.Printf("error while closing parsed results insert statement: %v", err)
 	}
 }
 
@@ -407,6 +443,10 @@ func (store *postgresStore) CountResultsForReferrer(requests <-chan CountResults
 			Err:   nil,
 		}
 	}
+
+	if err := query.Close(); err != nil {
+		log.Printf("error while closing results query: %v", err)
+	}
 }
 
 func (store *postgresStore) ResultsPerDayForReferrer(requests <-chan ResultsPerDayRequest) {
@@ -435,6 +475,9 @@ func (store *postgresStore) ResultsPerDayForReferrer(requests <-chan ResultsPerD
 			}
 			results[day.Format("2006-01-02")] = count
 		}
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows after querying results per day: %v", err)
+		}
 
 		if results == nil {
 			request.Response <- ResultsPerDayResponse{
@@ -447,6 +490,10 @@ func (store *postgresStore) ResultsPerDayForReferrer(requests <-chan ResultsPerD
 			Results: results,
 			Err:     err,
 		}
+	}
+
+	if err := query.Close(); err != nil {
+		log.Printf("error while closing results per day query: %v", err)
 	}
 }
 
@@ -474,6 +521,9 @@ func (store *postgresStore) ResultsPerCountryForReferrer(requests <-chan Results
 			}
 			results[country] = count
 		}
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows after selecting results per country: %v", err)
+		}
 
 		if results == nil {
 			request.Response <- ResultsPerCountryResponse{
@@ -486,5 +536,9 @@ func (store *postgresStore) ResultsPerCountryForReferrer(requests <-chan Results
 			Results: results,
 			Err:     err,
 		}
+	}
+
+	if err := query.Close(); err != nil {
+		log.Printf("error while closing results per country query: %v", err)
 	}
 }
