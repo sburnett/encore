@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"expvar"
 	"fmt"
@@ -23,15 +22,10 @@ type measurementsServerState struct {
 	Templates            *template.Template
 	Queries              chan *store.Query
 	Store                store.Store
-	TaskRequests         chan taskRequest
+	TaskGroups           <-chan []store.Task
 	MeasurementIds       <-chan string
 	CountResultsRequests chan store.CountResultsRequest
 	ServerUrl            string
-}
-
-type taskRequest struct {
-	Tasks chan *store.Task
-	Hints map[string]string
 }
 
 const hintPrefix string = "cmh-"
@@ -53,7 +47,7 @@ var unminifiedCount = expvar.NewInt("Unminified")
 var responseCount = expvar.NewInt("TasksServed")
 var noRefererCount = expvar.NewInt("NoReferer")
 var invalidRefererCount = expvar.NewInt("InvalidReferer")
-var taskRequestTimeoutCount = expvar.NewInt("TaskRequestTimeout")
+var taskGroupTimeoutCount = expvar.NewInt("TaskGroupTimeout")
 var missingTaskTypeCount = expvar.NewInt("MissingTaskType")
 
 func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurementsServerState {
@@ -62,8 +56,9 @@ func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurements
 
 	measurementIds := generateMeasurementIds()
 
-	taskRequests := make(chan taskRequest)
-	go generateTasks(s, taskRequests)
+	go s.ScheduleTaskGroups()
+
+	taskGroups := s.TaskGroups()
 
 	countResultsRequests := make(chan store.CountResultsRequest)
 	go s.CountResultsForReferrer(countResultsRequests)
@@ -73,60 +68,10 @@ func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurements
 		Templates:            template.Must(template.ParseGlob(filepath.Join(templatesPath, "[a-zA-Z]*"))),
 		Queries:              queries,
 		MeasurementIds:       measurementIds,
-		TaskRequests:         taskRequests,
+		TaskGroups:           taskGroups,
 		CountResultsRequests: countResultsRequests,
 		ServerUrl:            serverUrl,
 	}
-}
-
-func generateTasks(s store.Store, requests <-chan taskRequest) {
-	schedules := s.Schedules()
-	var schedule *store.Schedule
-	var requestsLeft sql.NullInt64
-	var endTime time.Time
-
-	nextSchedule := func() *store.Schedule {
-		sched := <-schedules
-		requestsLeft = sched.MaxMeasurements
-		endTime = time.Now().Add(sched.MaxDuration)
-		return sched
-	}
-
-	schedule = nextSchedule()
-
-	for {
-		select {
-		case request := <-requests:
-			idx := rand.Intn(len(schedule.Tasks))
-
-			request.Tasks <- &schedule.Tasks[idx]
-			close(request.Tasks)
-
-			if requestsLeft.Valid {
-				requestsLeft.Int64--
-				if requestsLeft.Int64 <= 0 {
-					schedule = nextSchedule()
-				}
-			}
-		case <-time.After(endTime.Sub(time.Now())):
-			schedule = nextSchedule()
-		}
-	}
-}
-
-func requestTask(requests chan taskRequest, hints map[string]string) *store.Task {
-	request := taskRequest{
-		Tasks: make(chan *store.Task),
-		Hints: hints,
-	}
-	select {
-	case requests <- request:
-		break
-	case <-time.After(time.Second):
-		taskRequestTimeoutCount.Add(1)
-		return nil
-	}
-	return <-request.Tasks
 }
 
 func parseContentType(path string) string {
@@ -199,6 +144,21 @@ func countResultsForReferer(requests chan store.CountResultsRequest, r *http.Req
 	return countResults(requests, referer.String())
 }
 
+func (state *measurementsServerState) selectTask(hints map[string]string) *store.Task {
+	var taskGroup []store.Task
+	select {
+	case taskGroup = <-state.TaskGroups:
+	case <-time.After(time.Second):
+		taskGroupTimeoutCount.Add(1)
+	}
+
+	if taskGroup == nil || len(taskGroup) == 0 {
+		return nil
+	}
+
+	return &taskGroup[rand.Intn(len(taskGroup))]
+}
+
 func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestCount.Add(1)
 	log.Printf("serving %v", r.URL)
@@ -223,7 +183,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 	}
 
 	// Select a task template
-	task := requestTask(state.TaskRequests, hints)
+	task := state.selectTask(hints)
 	if task == nil {
 		log.Printf("cannot find viable task")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -231,7 +191,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	taskType, ok := task.TemplateParameters["taskType"]
+	taskType, ok := task.Parameters["taskType"]
 	if !ok || !taskType.Valid {
 		log.Printf("malformed task: missing taskType")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -255,7 +215,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 		}
 		taskParameters["count"] = fmt.Sprint(count)
 	}
-	for k, v := range task.TemplateParameters {
+	for k, v := range task.Parameters {
 		if !v.Valid {
 			continue
 		}

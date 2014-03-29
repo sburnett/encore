@@ -8,18 +8,9 @@ import (
 	"time"
 )
 
-type Schedule struct {
-	Id               int
-	Priority         int
-	MaxDuration      time.Duration
-	MaxMeasurements  sql.NullInt64
-	MaxRatePerSecond sql.NullInt64
-	Tasks            []Task
-}
-
 type Task struct {
-	Id                 int
-	TemplateParameters map[string]sql.NullString
+	Id         int
+	Parameters map[string]sql.NullString
 }
 
 type Query struct {
@@ -94,7 +85,8 @@ type ResultsPerCountryResponse struct {
 
 type Store interface {
 	Close()
-	Schedules() <-chan *Schedule
+	ScheduleTaskGroups()
+	TaskGroups() <-chan []Task
 	WriteTasks(tasks <-chan *Task)
 	WriteQueries(queries <-chan *Query)
 	Queries() <-chan *Query

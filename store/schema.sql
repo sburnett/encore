@@ -4,7 +4,7 @@ CREATE TABLE tasks (
 	id serial primary key,
 	parameters hstore
 );
-CREATE TABLE schedules (
+CREATE TABLE task_groups (
 	id serial primary key,
 	priority integer,
 	max_duration_seconds integer,
@@ -12,18 +12,15 @@ CREATE TABLE schedules (
 	max_rate_per_second integer,
 	parameters hstore
 );
-CREATE TABLE currently_scheduled (
-	schedule integer references schedules(id);
-	expiration_time timestamp;
-	measurements_remaining integer;
-	priority integer;
+CREATE TABLE scheduled_groups (
+	task_group integer references task_groups(id),
+	expiration_time timestamp,
+	measurements_remaining integer,
+	priority integer,
+	scheduled_time timestamp
 );
 CREATE TABLE scheduler_configuration (
-	concurrent_schedules integer;
-	maximum_priority_scheduled integer;
-);
-CREATE TABLE already_scheduled (
-	schedule integer references schedules(id)
+	concurrent_groups integer
 );
 CREATE TABLE queries (
 	id serial primary key,
