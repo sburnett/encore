@@ -16,10 +16,10 @@ DESC=encore
 USER=encore
 USERHOME=$(eval echo ~encore)
 DAEMON=$USERHOME/go/bin/encore
-if [ -z "$ENCORE_PORT" ]; then
-	PORT=8080
+if [ -z "$ENCORE_PORTS" ]; then
+	PORTS=8080 8081
 else
-	PORT=$ENCORE_PORT
+	PORTS=$ENCORE_PORTS
 fi
 
 test -x $DAEMON || exit 0
@@ -31,26 +31,30 @@ set -e
 case "$1" in
 	start)
 		echo -n "Starting $DESC: "
-		start-stop-daemon --start --quiet --background \
-			--pidfile /var/run/$NAME-$PORT.pid --make-pidfile \
-			--user $USER --chuid $USER \
-			--exec $DAEMON -- \
-				-cube_export=false \
-				-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
-				-logfile=${USERHOME}/$NAME-$PORT.log \
-				-listen_address="127.0.0.1:$PORT" \
-				-server_url="//encore.noise.gatech.edu" \
-				-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
-				-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
-				-static_path=$USERHOME/go/src/github.com/sburnett/encore/static || true
-		echo "$NAME."
+		for PORT in $PORTS; do
+			start-stop-daemon --start --quiet --background \
+				--pidfile /var/run/$NAME-$PORT.pid --make-pidfile \
+				--user $USER --chuid $USER \
+				--exec $DAEMON -- \
+					-cube_export=false \
+					-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
+					-logfile=${USERHOME}/$NAME-$PORT.log \
+					-listen_address="127.0.0.1:$PORT" \
+					-server_url="//encore.noise.gatech.edu" \
+					-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
+					-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
+					-static_path=$USERHOME/go/src/github.com/sburnett/encore/static || true
+			echo "$NAME: port $PORT"
+		done
 		;;
 
 	stop)
 		echo -n "Stopping $DESC: "
-		start-stop-daemon --stop --quiet --pidfile /var/run/$NAME-$PORT.pid \
-		    --exec $DAEMON --user $USER || true
-		echo "$NAME."
+		for PORT in $PORTS; do
+			start-stop-daemon --stop --quiet --pidfile /var/run/$NAME-$PORT.pid \
+			--exec $DAEMON --user $USER || true
+			echo "$NAME: port $PORT"
+		done
 		;;
 
 	restart)
