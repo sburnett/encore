@@ -22,9 +22,6 @@ func parseQueries(queries <-chan *store.Query, geolocator *geoip.GeoIP) <-chan *
 			if err != nil {
 				log.Printf("error parsing result request: %v", err)
 			}
-			//userAgent := request.Header.Get("User-Agent")
-			//origin := request.Header.Get("Origin")
-			//referer := request.Header.Get("Referer")
 			clientIp := request.Header.Get("X-Real-Ip")
 			if clientIp == "" {
 				clientIp = query.RemoteAddr
@@ -45,7 +42,6 @@ func parseQueries(queries <-chan *store.Query, geolocator *geoip.GeoIP) <-chan *
 
 			host, _, err := net.SplitHostPort(clientIp)
 			if err != nil {
-				log.Printf("error splitting host and port %v: %v", clientIp, err)
 				host = clientIp
 			}
 
@@ -86,7 +82,6 @@ func parseResults(results <-chan *store.Result, geolocator *geoip.GeoIP) <-chan 
 
 			host, _, err := net.SplitHostPort(clientIp)
 			if err != nil {
-				log.Printf("error splitting host and port %v: %v", clientIp, err)
 				host = clientIp
 			}
 
