@@ -1,5 +1,7 @@
 CREATE EXTENSION hstore;
 
+CREATE SCHEMA task_groups;
+
 CREATE TABLE tasks (
 	id serial primary key,
 	parameters hstore
@@ -10,7 +12,7 @@ CREATE TABLE task_groups (
 	max_duration_seconds integer,
 	max_measurements integer,
 	max_rate_per_second integer,
-	parameters hstore
+	tasks_view information_schema.sql_identifier
 );
 CREATE TABLE scheduled_groups (
 	task_group integer references task_groups(id),

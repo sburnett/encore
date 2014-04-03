@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"expvar"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -125,13 +126,9 @@ func (store *postgresStore) TaskGroups() <-chan []Task {
 	go func() {
 		updateTicker := time.Tick(*schedulingInterval)
 
-		selectStmt, err := store.db.Prepare("SELECT id, parameters FROM scheduled_groups, task_groups WHERE task_group = id ORDER BY id")
+		selectStmt, err := store.db.Prepare("SELECT id, tasks_view FROM scheduled_groups, task_groups WHERE task_group = id ORDER BY id")
 		if err != nil {
 			log.Fatalf("error preparing schedules select statement: %v", err)
-		}
-		tasksStmt, err := store.db.Prepare("SELECT id, parameters FROM tasks WHERE parameters @> $1 ORDER BY id")
-		if err != nil {
-			log.Fatalf("error preparing scheduling parameters select statement: %v", err)
 		}
 
 		refreshTaskGroups := func() [][]Task {
@@ -142,13 +139,13 @@ func (store *postgresStore) TaskGroups() <-chan []Task {
 			var taskGroups [][]Task
 			for rows.Next() {
 				var id int
-				var groupParameters hstore.Hstore
-				if err := rows.Scan(&id, &groupParameters); err != nil {
+				var tasksView string
+				if err := rows.Scan(&id, &tasksView); err != nil {
 					log.Fatalf("error scanning task group: %v", err)
 				}
-				rows, err := tasksStmt.Query(groupParameters)
+				rows, err := store.db.Query(fmt.Sprintf("SELECT id, parameters FROM task_groups.%s ORDER BY id", tasksView))
 				if err != nil {
-					log.Fatalf("error selecting tasks that match a group", err)
+					log.Fatalf("error selecting tasks that match a group: %v", err)
 				}
 				var taskGroup []Task
 				for rows.Next() {
