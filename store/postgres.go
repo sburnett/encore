@@ -18,25 +18,14 @@ type postgresStore struct {
 
 var schedulingInterval = flag.Duration("scheduling_interval", time.Minute, "run the scheduler this often.")
 
-var noPriorGroupsScheduledCounter = metrics.NewCounter()
-var lastMaxPriorityErrorCounter = metrics.NewCounter()
-var deleteExpiredGroupsErrorCounter = metrics.NewCounter()
-var countSchedluedTasksErrorCounter = metrics.NewCounter()
-var countScheduledGroupsErrorCounter = metrics.NewCounter()
-var unfilledScheduleCounter = metrics.NewCounter()
-var insertScheduledGroupsErrorCounter = metrics.NewCounter()
-var emptyTaskGroupCounter = metrics.NewCounter()
-
-func init() {
-	metrics.Register("NoPriorGroupsScheduled", noPriorGroupsScheduledCounter)
-	metrics.Register("LastMaxPriorityError", lastMaxPriorityErrorCounter)
-	metrics.Register("DeleteExpiredGroupsError", deleteExpiredGroupsErrorCounter)
-	metrics.Register("CountSchedluedTasksError", countSchedluedTasksErrorCounter)
-	metrics.Register("CountScheduledGroupsError", countScheduledGroupsErrorCounter)
-	metrics.Register("UnfilledSchedule", unfilledScheduleCounter)
-	metrics.Register("InsertScheduledGroupsError", insertScheduledGroupsErrorCounter)
-	metrics.Register("EmptyTaskGroup", emptyTaskGroupCounter)
-}
+var noPriorGroupsScheduledCounter = metrics.GetOrRegisterCounter("NoPriorGroupsScheduled", nil)
+var lastMaxPriorityErrorCounter = metrics.GetOrRegisterCounter("LastMaxPriorityError", nil)
+var deleteExpiredGroupsErrorCounter = metrics.GetOrRegisterCounter("DeleteExpiredGroupsError", nil)
+var countSchedluedTasksErrorCounter = metrics.GetOrRegisterCounter("CountSchedluedTasksError", nil)
+var countScheduledGroupsErrorCounter = metrics.GetOrRegisterCounter("CountScheduledGroupsError", nil)
+var unfilledScheduleCounter = metrics.GetOrRegisterCounter("UnfilledSchedule", nil)
+var insertScheduledGroupsErrorCounter = metrics.GetOrRegisterCounter("InsertScheduledGroupsError", nil)
+var emptyTaskGroupCounter = metrics.GetOrRegisterCounter("EmptyTaskGroup", nil)
 
 func openPostgres(db *sql.DB) Store {
 	return &postgresStore{

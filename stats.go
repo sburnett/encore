@@ -17,15 +17,9 @@ type statsState struct {
 	ResultsPerCountryRequests chan store.ResultsPerCountryRequest
 }
 
-var refererRedirects = metrics.NewCounter()
-var statsHits = metrics.NewCounter()
-var statsTemplateExecutionErrorCount = metrics.NewCounter()
-
-func init() {
-	metrics.Register("StatsRefererRedirects", refererRedirects)
-	metrics.Register("StatsHits", statsHits)
-	metrics.Register("StatsTemplateExecutionError", statsTemplateExecutionErrorCount)
-}
+var refererRedirects = metrics.GetOrRegisterCounter("StatsRefererRedirects", nil)
+var statsHits = metrics.GetOrRegisterCounter("StatsHits", nil)
+var statsTemplateExecutionErrorCount = metrics.GetOrRegisterCounter("StatsTemplateExecutionError", nil)
 
 func NewStatsServer(s store.Store, templatesPath string) http.Handler {
 	countResultsRequests := make(chan store.CountResultsRequest)

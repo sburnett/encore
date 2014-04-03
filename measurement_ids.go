@@ -10,8 +10,7 @@ import (
 
 func generateMeasurementIds() <-chan string {
 	measurementIds := make(chan string)
-	measurementIdCounter := metrics.NewCounter()
-	metrics.Register("MeasurementIdsGenerated", measurementIdCounter)
+	measurementIdCounter := metrics.GetOrRegisterCounter("MeasurementIdsGenerated", nil)
 	go func() {
 		r := rand.NewSource(time.Now().UnixNano())
 		for {

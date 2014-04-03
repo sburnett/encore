@@ -14,13 +14,8 @@ type submitState struct {
 	results chan *store.Result
 }
 
-var submissionCount = metrics.NewCounter()
-var submissionErrorCount = metrics.NewCounter()
-
-func init() {
-	metrics.Register("ResultsSubmitted", submissionCount)
-	metrics.Register("ResultSubmissionRequestsMalformed", submissionErrorCount)
-}
+var submissionCount = metrics.GetOrRegisterCounter("ResultsSubmitted", nil)
+var submissionErrorCount = metrics.GetOrRegisterCounter("ResultSubmissionRequestsMalformed", nil)
 
 func NewSubmissionServer(s store.Store) *submitState {
 	resultsChan := make(chan *store.Result)
