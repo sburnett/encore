@@ -12,6 +12,7 @@ import (
 
 var influxDbHost, influxDbDatabase, influxDbUsername, influxDbPassword string
 var influxDbExportInterval time.Duration
+var printMetrics bool
 
 func init() {
 	flag.StringVar(&influxDbHost, "influx_db_host", "127.0.0.1:8086", "InfluxDB host")
@@ -19,6 +20,7 @@ func init() {
 	flag.StringVar(&influxDbUsername, "influx_db_username", "", "InfluxDB username")
 	flag.StringVar(&influxDbPassword, "influx_db_password", "", "InfluxDB password")
 	flag.DurationVar(&influxDbExportInterval, "influx_db_export_interval", time.Minute, "Export stats to InfluxDB once every interval")
+	flag.BoolVar(&printMetrics, "print_metrics", false, "Print all metrics to stderr")
 }
 
 func initMetrics() {
@@ -28,5 +30,7 @@ func initMetrics() {
 		Username: influxDbUsername,
 		Password: influxDbPassword,
 	})
-	go metrics.Log(metrics.DefaultRegistry, 1e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
+	if printMetrics {
+		go metrics.Log(metrics.DefaultRegistry, 1e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
+	}
 }

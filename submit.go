@@ -2,11 +2,11 @@ package main
 
 import (
 	"bytes"
-	"expvar"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/rcrowley/go-metrics"
 	"github.com/sburnett/encore/store"
 )
 
@@ -14,8 +14,13 @@ type submitState struct {
 	results chan *store.Result
 }
 
-var submissionCount = expvar.NewInt("ResultsSubmitted")
-var submissionErrorCount = expvar.NewInt("ResultSubmissionRequestsMalformed")
+var submissionCount = metrics.NewCounter()
+var submissionErrorCount = metrics.NewCounter()
+
+func init() {
+	metrics.Register("ResultsSubmitted", submissionCount)
+	metrics.Register("ResultSubmissionRequestsMalformed", submissionErrorCount)
+}
 
 func NewSubmissionServer(s store.Store) *submitState {
 	resultsChan := make(chan *store.Result)
@@ -27,7 +32,7 @@ func NewSubmissionServer(s store.Store) *submitState {
 }
 
 func (state *submitState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	submissionCount.Add(1)
+	submissionCount.Inc(1)
 
 	// Let clients post results from any domain. This is necessary because
 	// our measurements run and report from third party Web sites.
@@ -37,7 +42,7 @@ func (state *submitState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := r.Write(&rawRequest); err != nil {
 		log.Print("error writing HTTP request")
 		w.WriteHeader(http.StatusInternalServerError)
-		submissionErrorCount.Add(1)
+		submissionErrorCount.Inc(1)
 		return
 	}
 	log.Printf("inserting new result from '%v'", r.RemoteAddr)
