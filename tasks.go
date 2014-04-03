@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"expvar"
 	"fmt"
 	"html/template"
 	"log"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"bitbucket.org/maxhauser/jsmin"
+	"github.com/rcrowley/go-metrics"
 	"github.com/sburnett/encore/store"
 )
 
@@ -35,20 +35,37 @@ const (
 	HtmlExtension              = ".html"
 )
 
-var requestCount = expvar.NewInt("TasksRequested")
-var optOutCount = expvar.NewInt("OptOut")
-var noViableTasksCount = expvar.NewInt("NoViableTask")
-var countResultsErrorCount = expvar.NewInt("CountResultsError")
-var templateExecutionErrorCount = expvar.NewInt("TemplateExecutionError")
-var requestParseErrorCount = expvar.NewInt("RequestParseError")
-var parametersMarshalErrorCount = expvar.NewInt("ParametersMarshalError")
-var minifiedCount = expvar.NewInt("Minified")
-var unminifiedCount = expvar.NewInt("Unminified")
-var responseCount = expvar.NewInt("TasksServed")
-var noRefererCount = expvar.NewInt("NoReferer")
-var invalidRefererCount = expvar.NewInt("InvalidReferer")
-var taskGroupTimeoutCount = expvar.NewInt("TaskGroupTimeout")
-var missingTaskTypeCount = expvar.NewInt("MissingTaskType")
+var requestCount = metrics.NewCounter()
+var optOutCount = metrics.NewCounter()
+var noViableTaskCount = metrics.NewCounter()
+var countResultsErrorCount = metrics.NewCounter()
+var templateExecutionErrorCount = metrics.NewCounter()
+var requestParseErrorCount = metrics.NewCounter()
+var parametersMarshalErrorCount = metrics.NewCounter()
+var minifiedCount = metrics.NewCounter()
+var unminifiedCount = metrics.NewCounter()
+var responseCount = metrics.NewCounter()
+var noRefererCount = metrics.NewCounter()
+var invalidRefererCount = metrics.NewCounter()
+var taskGroupTimeoutCount = metrics.NewCounter()
+var missingTaskTypeCount = metrics.NewCounter()
+
+func init() {
+	metrics.Register("TasksRequested", requestCount)
+	metrics.Register("OptOut", optOutCount)
+	metrics.Register("NoViableTask", noViableTaskCount)
+	metrics.Register("CountResultsError", countResultsErrorCount)
+	metrics.Register("TemplateExecutionError", templateExecutionErrorCount)
+	metrics.Register("RequestParseError", requestParseErrorCount)
+	metrics.Register("ParametersMarshalError", parametersMarshalErrorCount)
+	metrics.Register("Minified", minifiedCount)
+	metrics.Register("Unminified", unminifiedCount)
+	metrics.Register("TasksServed", responseCount)
+	metrics.Register("NoReferer", noRefererCount)
+	metrics.Register("InvalidReferer", invalidRefererCount)
+	metrics.Register("TaskGroupTimeout", taskGroupTimeoutCount)
+	metrics.Register("MissingTaskType", missingTaskTypeCount)
+}
 
 func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurementsServerState {
 	queries := make(chan *store.Query)
@@ -131,12 +148,12 @@ func parseHints(r *http.Request) (hints map[string]string) {
 func countResultsForReferer(requests chan store.CountResultsRequest, r *http.Request) (int, error) {
 	referers, ok := r.Header["Referer"]
 	if !ok {
-		noRefererCount.Add(1)
+		noRefererCount.Inc(1)
 		return 0, fmt.Errorf("no referer")
 	}
 	referer, err := url.ParseRequestURI(referers[0])
 	if err != nil {
-		invalidRefererCount.Add(1)
+		invalidRefererCount.Inc(1)
 		return 0, fmt.Errorf("invalid referer")
 	}
 	referer.RawQuery = "" // Remove query parameters for robustness.
@@ -149,7 +166,7 @@ func (state *measurementsServerState) selectTask(hints map[string]string) *store
 	select {
 	case taskGroup = <-state.TaskGroups:
 	case <-time.After(time.Second):
-		taskGroupTimeoutCount.Add(1)
+		taskGroupTimeoutCount.Inc(1)
 	}
 
 	if taskGroup == nil || len(taskGroup) == 0 {
@@ -160,7 +177,7 @@ func (state *measurementsServerState) selectTask(hints map[string]string) *store
 }
 
 func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestCount.Add(1)
+	requestCount.Inc(1)
 	log.Printf("serving %v", r.URL)
 
 	substrate := parseContentType(r.URL.Path)
@@ -178,7 +195,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 	if disabled, ok := hints["disable"]; ok && disabled == "true" {
 		log.Printf("user opted out of Encore")
 		w.WriteHeader(http.StatusOK)
-		optOutCount.Add(1)
+		optOutCount.Inc(1)
 		return
 	}
 
@@ -187,7 +204,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 	if task == nil {
 		log.Printf("cannot find viable task")
 		w.WriteHeader(http.StatusInternalServerError)
-		noViableTasksCount.Add(1)
+		noViableTaskCount.Inc(1)
 		return
 	}
 
@@ -195,7 +212,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 	if !ok || !taskType.Valid {
 		log.Printf("malformed task: missing taskType")
 		w.WriteHeader(http.StatusInternalServerError)
-		missingTaskTypeCount.Add(1)
+		missingTaskTypeCount.Inc(1)
 		return
 	}
 
@@ -211,7 +228,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 		count, err := countResultsForReferer(state.CountResultsRequests, r)
 		if err != nil {
 			log.Printf("error counting results: %v", err)
-			countResultsErrorCount.Add(1)
+			countResultsErrorCount.Inc(1)
 		}
 		taskParameters["count"] = fmt.Sprint(count)
 	}
@@ -227,30 +244,30 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 	if err := state.Templates.ExecuteTemplate(&responseBody, templateName, taskParameters); err != nil {
 		log.Printf("error executing task template %s: %v", templateName, err)
 		w.WriteHeader(http.StatusInternalServerError)
-		templateExecutionErrorCount.Add(1)
+		templateExecutionErrorCount.Inc(1)
 		return
 	}
 
 	if minify, ok := hints["minify"]; ok && minify == "false" {
 		responseBody.WriteTo(w)
-		minifiedCount.Add(1)
+		minifiedCount.Inc(1)
 	} else {
 		jsmin.Run(&responseBody, w)
-		unminifiedCount.Add(1)
+		unminifiedCount.Inc(1)
 	}
 
 	var rawRequest bytes.Buffer
 	if err := r.Write(&rawRequest); err != nil {
 		log.Print("error writing HTTP request")
 		w.WriteHeader(http.StatusInternalServerError)
-		requestParseErrorCount.Add(1)
+		requestParseErrorCount.Inc(1)
 		return
 	}
 	parametersBytes, err := json.Marshal(taskParameters)
 	if err != nil {
 		log.Printf("cannot marshal task parameters to JSON")
 		w.WriteHeader(http.StatusInternalServerError)
-		parametersMarshalErrorCount.Add(1)
+		parametersMarshalErrorCount.Inc(1)
 		return
 	}
 
@@ -264,5 +281,5 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 		ResponseBody:   responseBody.Bytes(),
 	}
 
-	responseCount.Add(1)
+	responseCount.Inc(1)
 }

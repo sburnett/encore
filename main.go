@@ -36,6 +36,8 @@ func main() {
 
 	log.Printf("starting")
 
+	initMetrics()
+
 	go cube.Run(cubeCollectionType)
 
 	s := store.Open()

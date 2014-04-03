@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"expvar"
 	"flag"
 	"fmt"
 	"log"
@@ -10,6 +9,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/lib/pq/hstore"
+	"github.com/rcrowley/go-metrics"
 )
 
 type postgresStore struct {
@@ -18,14 +18,25 @@ type postgresStore struct {
 
 var schedulingInterval = flag.Duration("scheduling_interval", time.Minute, "run the scheduler this often.")
 
-var noPriorGroupsScheduledCounter = expvar.NewInt("NoPriorGroupsScheduled")
-var lastMaxPriorityErrorCounter = expvar.NewInt("LastMaxPriorityError")
-var deleteExpiredGroupsErrorCounter = expvar.NewInt("DeleteExpiredGroupsError")
-var countSchedluedTasksErrorCounter = expvar.NewInt("CountSchedluedTasksError")
-var countScheduledGroupsErrorCounter = expvar.NewInt("CountScheduledGroupsError")
-var unfilledScheduleCounter = expvar.NewInt("UnfilledSchedule")
-var insertScheduledGroupsErrorCounter = expvar.NewInt("InsertScheduledGroupsError")
-var emptyTaskGroupCounter = expvar.NewInt("EmptyTaskGroup")
+var noPriorGroupsScheduledCounter = metrics.NewCounter()
+var lastMaxPriorityErrorCounter = metrics.NewCounter()
+var deleteExpiredGroupsErrorCounter = metrics.NewCounter()
+var countSchedluedTasksErrorCounter = metrics.NewCounter()
+var countScheduledGroupsErrorCounter = metrics.NewCounter()
+var unfilledScheduleCounter = metrics.NewCounter()
+var insertScheduledGroupsErrorCounter = metrics.NewCounter()
+var emptyTaskGroupCounter = metrics.NewCounter()
+
+func init() {
+	metrics.Register("NoPriorGroupsScheduled", noPriorGroupsScheduledCounter)
+	metrics.Register("LastMaxPriorityError", lastMaxPriorityErrorCounter)
+	metrics.Register("DeleteExpiredGroupsError", deleteExpiredGroupsErrorCounter)
+	metrics.Register("CountSchedluedTasksError", countSchedluedTasksErrorCounter)
+	metrics.Register("CountScheduledGroupsError", countScheduledGroupsErrorCounter)
+	metrics.Register("UnfilledSchedule", unfilledScheduleCounter)
+	metrics.Register("InsertScheduledGroupsError", insertScheduledGroupsErrorCounter)
+	metrics.Register("EmptyTaskGroup", emptyTaskGroupCounter)
+}
 
 func openPostgres(db *sql.DB) Store {
 	return &postgresStore{
@@ -42,10 +53,10 @@ func insertTaskGroups(tx *sql.Tx) error {
 	row := tx.QueryRow("SELECT task_group, priority FROM scheduled_groups ORDER BY scheduled_time DESC, priority DESC, task_group DESC LIMIT 1")
 	if err := row.Scan(&minTaskGroup, &minPriority); err == sql.ErrNoRows {
 		log.Printf("no prior groups scheduled")
-		noPriorGroupsScheduledCounter.Add(1)
+		noPriorGroupsScheduledCounter.Inc(1)
 	} else if err != nil {
 		log.Printf("error finding max last priority: %v", err)
-		lastMaxPriorityErrorCounter.Add(1)
+		lastMaxPriorityErrorCounter.Inc(1)
 		return err
 	}
 
@@ -53,7 +64,7 @@ func insertTaskGroups(tx *sql.Tx) error {
 
 	if _, err := tx.Exec("DELETE FROM scheduled_groups WHERE expiration_time < now() OR measurements_remaining <= 0"); err != nil {
 		log.Printf("error deleting expired task groups: %v", err)
-		deleteExpiredGroupsErrorCounter.Add(1)
+		deleteExpiredGroupsErrorCounter.Inc(1)
 		return err
 	}
 
@@ -61,39 +72,39 @@ func insertTaskGroups(tx *sql.Tx) error {
 	row = tx.QueryRow("SELECT concurrent_groups - scheduled FROM (SELECT count(1) scheduled FROM scheduled_groups) AS c, scheduler_configuration")
 	if err := row.Scan(&toSchedule); err != nil {
 		log.Printf("error counting scheduled tasks: %v", err)
-		countSchedluedTasksErrorCounter.Add(1)
+		countSchedluedTasksErrorCounter.Inc(1)
 		return err
 	}
 
 	result, err := tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups WHERE ((priority = $1 AND id > $2) OR priority > $1) ORDER BY priority, id LIMIT $3", minPriority, minTaskGroup, toSchedule)
 	if err != nil {
 		log.Printf("error inserting new schedules: %v", err)
-		insertScheduledGroupsErrorCounter.Add(1)
+		insertScheduledGroupsErrorCounter.Inc(1)
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("error discovering number of affected rows: %v", err)
-		countScheduledGroupsErrorCounter.Add(1)
+		countScheduledGroupsErrorCounter.Inc(1)
 		return err
 	}
 	toSchedule -= int(rowsAffected)
 	result, err = tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups ORDER BY priority, id LIMIT $1", toSchedule)
 	if err != nil {
 		log.Printf("error inserting new schedules: %v", err)
-		insertScheduledGroupsErrorCounter.Add(1)
+		insertScheduledGroupsErrorCounter.Inc(1)
 		return err
 	}
 	rowsAffected, err = result.RowsAffected()
 	if err != nil {
 		log.Printf("error discovering number of affected rows: %v", err)
-		countScheduledGroupsErrorCounter.Add(1)
+		countScheduledGroupsErrorCounter.Inc(1)
 		return err
 	}
 	toSchedule -= int(rowsAffected)
 	if toSchedule > 0 {
 		log.Printf("unable to fill schedule")
-		unfilledScheduleCounter.Add(1)
+		unfilledScheduleCounter.Inc(1)
 	}
 	return nil
 }
@@ -164,7 +175,7 @@ func (store *postgresStore) TaskGroups() <-chan []Task {
 
 				if taskGroup == nil {
 					log.Printf("skipping schedule with no matching tasks: id %v", id)
-					emptyTaskGroupCounter.Add(1)
+					emptyTaskGroupCounter.Inc(1)
 					continue
 				}
 

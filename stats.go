@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"expvar"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 
+	"github.com/rcrowley/go-metrics"
 	"github.com/sburnett/encore/store"
 )
 
@@ -17,9 +17,15 @@ type statsState struct {
 	ResultsPerCountryRequests chan store.ResultsPerCountryRequest
 }
 
-var refererRedirects = expvar.NewInt("StatsRefererRedirects")
-var statsHits = expvar.NewInt("StatsHits")
-var statsTemplateExecutionErrorCount = expvar.NewInt("StatsTemplateExecutionError")
+var refererRedirects = metrics.NewCounter()
+var statsHits = metrics.NewCounter()
+var statsTemplateExecutionErrorCount = metrics.NewCounter()
+
+func init() {
+	metrics.Register("StatsRefererRedirects", refererRedirects)
+	metrics.Register("StatsHits", statsHits)
+	metrics.Register("StatsTemplateExecutionError", statsTemplateExecutionErrorCount)
+}
 
 func NewStatsServer(s store.Store, templatesPath string) http.Handler {
 	countResultsRequests := make(chan store.CountResultsRequest)
@@ -39,7 +45,7 @@ func NewStatsServer(s store.Store, templatesPath string) http.Handler {
 }
 
 func refererRedirect(w http.ResponseWriter, r *http.Request) {
-	refererRedirects.Add(1)
+	refererRedirects.Inc(1)
 
 	var referer string
 	referers, ok := r.Header["Referer"]
@@ -64,7 +70,7 @@ func refererRedirect(w http.ResponseWriter, r *http.Request) {
 func formatReferer(refererString string) (string, error) {
 	referer, err := url.ParseRequestURI(refererString)
 	if err != nil {
-		invalidRefererCount.Add(1)
+		invalidRefererCount.Inc(1)
 		return "", fmt.Errorf("invalid referer")
 	}
 	referer.RawQuery = "" // Remove query parameters for robustness.
@@ -103,7 +109,7 @@ func resultsPerCountry(requests chan store.ResultsPerCountryRequest, referer str
 }
 
 func (state *statsState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	statsHits.Add(1)
+	statsHits.Inc(1)
 
 	referer := r.URL.Query().Get("referer")
 	refererString, err := formatReferer(referer)
