@@ -1,7 +1,6 @@
 {{template "header.js" .}}
 CensorshipMeter.measure = function() {
   var iframe = $('<iframe />');
-  iframe.attr('id', 'CensorshipMeterIframe');
   iframe.attr('width', 0);
   iframe.attr('height', 0);
   iframe.attr('srcdoc', '<link href="{{.cssUrl}}" rel="stylesheet" type="text/css"><p id="testParagraph"></p>');
