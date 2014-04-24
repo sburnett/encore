@@ -1,10 +1,19 @@
 var CensorshipMeter = new Object();
 CensorshipMeter.baseUrl = "{{.serverUrl}}/submit";
 CensorshipMeter.measurementId = encodeURIComponent("{{.measurementId}}");
-CensorshipMeter.submitResult = function(state) {
+CensorshipMeter.maxMessageLength = 64;
+CensorshipMeter.submitResult = function(state, message) {
   this.submitted = state;
+  if (message != null) {
+    message = message.substring(0, maxMessageLength);
+  }
+  var params = {
+    "cmh-id": this.measurementId,
+    "cmh-result": state,
+    "cmh-message": message,
+  };
   $.ajax({
-    url: this.baseUrl + "?cmh-id=" + this.measurementId + "&cmh-result=" + encodeURIComponent(state),
+    url: this.baseUrl + "?" + $.param(params),
   });
 }
 CensorshipMeter.sendSuccess = function() {
@@ -13,8 +22,8 @@ CensorshipMeter.sendSuccess = function() {
 CensorshipMeter.sendFailure = function() {
   this.submitResult("failure");
 }
-CensorshipMeter.sendException = function() {
-  this.submitResult("exception");
+CensorshipMeter.sendException = function(err) {
+  this.submitResult("exception", err);
 }
 {{if ne .hintShowStats "false"}}
 CensorshipMeter.setupStats = function() {
@@ -34,7 +43,11 @@ CensorshipMeter.setupStats = function() {
 CensorshipMeter.run = function() {
   this.submitResult("init");
   $(function() {
-    CensorshipMeter.measure();
+    try {
+      CensorshipMeter.measure();
+    } catch(err) {
+      CensorshipMeter.sendException(err);
+    }
   });
 {{if ne .hintShowStats "false"}}
   $(function() {
