@@ -13,6 +13,9 @@ CensorshipMeter.sendSuccess = function() {
 CensorshipMeter.sendFailure = function() {
   this.submitResult("failure");
 }
+CensorshipMeter.sendException = function() {
+  this.submitResult("exception");
+}
 {{if ne .hintShowStats "false"}}
 CensorshipMeter.setupStats = function() {
   this.logo = $("#encore-stats");
