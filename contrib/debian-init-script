@@ -29,11 +29,16 @@ set -e
 
 . /lib/lsb/init-functions
 
-start_encore() {
-	if ! $DAEMON --version; then
-		echo "aborting start"
+check_version() {
+	if ! $DAEMON --version >/dev/null; then
+		echo "$DAEMON --version must return a version number"
+		echo "aborting..."
 		exit 1
 	fi
+}
+
+start_encore() {
+	check_version
 
 	PORT=$1
 	start-stop-daemon --start --quiet --background \
@@ -84,11 +89,7 @@ case "$1" in
 		;;
 
 	restart)
-		echo -n "Restarting $DESC: "
-		if ! $DAEMON --version; then
-			echo "aborting restart"
-			exit 1
-		fi
+		check_version
 		for PORT in $PORTS; do
 			stop_encore $PORT
 			sleep 1
