@@ -4,14 +4,13 @@ CensorshipMeter.measurementId = encodeURIComponent("{{.measurementId}}");
 CensorshipMeter.maxMessageLength = 64;
 CensorshipMeter.submitResult = function(state, message) {
   this.submitted = state;
-  if (message != null) {
-    message = String(message).substring(0, this.maxMessageLength);
-  }
   var params = {
     "cmh-id": this.measurementId,
     "cmh-result": state,
-    "cmh-message": message,
   };
+  if (message != null) {
+    params["cmh-message"] = String(message).substring(0, this.maxMessageLength);
+  }
   $.ajax({
     url: this.baseUrl + "?" + $.param(params),
   });
