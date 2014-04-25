@@ -1,0 +1,1 @@
+0 * * * * encore $HOME/go/bin/encore-parser -database="dbname=encore host=/var/run/postgresql sslmode=disable" -geoip_database=$HOME/GeoIP.dat >> /var/log/encore/encore-parse.log 2>&1
