@@ -1,0 +1,12 @@
+/var/log/encore/*.log {
+	daily
+	missingok
+	rotate 365
+	compress
+	delaycompress
+	notifempty
+	create 0640 encore adm
+	sharedscripts
+	copytruncate
+	maxsize 5M
+}	

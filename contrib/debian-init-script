@@ -15,6 +15,7 @@ NAME=encore
 DESC=encore
 USER=encore
 USERHOME=$(eval echo ~encore)
+LOGHOME=/var/log/encore
 DAEMON=$USERHOME/go/bin/encore
 if [ -z "$ENCORE_PORTS" ]; then
 	PORTS="8080 8081"
@@ -47,7 +48,7 @@ start_encore() {
 		--exec $DAEMON -- \
 			-cube_export=false \
 			-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
-			-logfile=${USERHOME}/$NAME-$PORT.log \
+			-logfile=${LOGHOME}/$NAME-$PORT.log \
 			-listen_address="127.0.0.1:$PORT" \
 			-server_url="//encore.noise.gatech.edu" \
 			-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
