@@ -24,7 +24,7 @@ server {
 	listen 443 ssl;
 	server_name encore.noise.gatech.edu;
 
-	ssl_certificate /etc/ssl/certs/encore.crt;
+	ssl_certificate /etc/ssl/certs/encore_new.crt;
 	ssl_certificate_key /etc/ssl/private/encore.key;
 
 	access_log /var/log/nginx/encore.noise.gatech.edu.443.access.log;
