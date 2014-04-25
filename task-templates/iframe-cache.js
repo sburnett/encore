@@ -24,8 +24,29 @@ CensorshipMeter.measure = function() {
       img.on('error', function() {
         CensorshipMeter.sendError();
       });
+
+      {{if .controlImageUrl}}
+      var controlImg = $('<img />');
+      controlImg.css('display', 'none');
+      controlImg.attr('src', '{{.controlImageUrl}}');
+      controlImg.on('load', function() {
+        try {
+          var controlImgEndTime = $.now();
+          CensorshipMeter.submitResult('load-time-control-img', controlImgEndTime - CensorshipMeter.imgStartTime);
+        } catch(err) {
+          CensorshipMeter.sendException(err);
+        }
+      });
+      controlImg.on('error', function() {
+        CensorshipMeter.submitResult('failure-control');
+      });
+      {{end}}
+
       CensorshipMeter.imgStartTime = $.now();
       img.appendTo('html');
+      {{if .controlImageUrl}}
+      controlImg.appendTo('html');
+      {{end}}
     } catch(err) {
       CensorshipMeter.sendException(err);
     }
