@@ -25,6 +25,8 @@ func main() {
 	flag.StringVar(&logfile, "logfile", "", "Write logs to this file instead of stdout")
 	flag.Parse()
 
+	printVersionIfAsked()
+
 	if logfile != "" {
 		f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
 		if err != nil {

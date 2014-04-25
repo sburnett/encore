@@ -6,15 +6,26 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 var gitRevisionId string
 
+var printVersion = flag.Bool("version", false, "Print the git revision id and exit")
+
 func init() {
 	if gitRevisionId == "" {
 		panic(fmt.Errorf("you must define a version number during compilation"))
+	}
+}
+
+func printVersionIfAsked() {
+	if *printVersion {
+		fmt.Println(gitRevisionId)
+		os.Exit(0)
 	}
 }
 

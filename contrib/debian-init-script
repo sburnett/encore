@@ -29,6 +29,11 @@ set -e
 . /lib/lsb/init-functions
 
 start_encore() {
+	if ! $DAEMON --version; then
+		echo "aborting start"
+		exit 1
+	fi
+
 	PORT=$1
 	start-stop-daemon --start --quiet --background \
 		--pidfile /var/run/$NAME-$PORT.pid --make-pidfile \
@@ -69,6 +74,10 @@ case "$1" in
 
 	restart)
 		echo -n "Restarting $DESC: "
+		if ! $DAEMON --version; then
+			echo "aborting restart"
+			exit 1
+		fi
 		for PORT in $PORTS; do
 			stop_encore $PORT
 			sleep 1
