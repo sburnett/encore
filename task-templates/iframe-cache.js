@@ -7,17 +7,16 @@ CensorshipMeter.measure = function() {
   iframe.css('display', 'none');
   iframe.on('load', function() {
     try {
-      CensorshipMeter.iframeEndTime = $.now();
+      var iframeEndTime = $.now();
+      CensorshipMeter.submitResult('load-time-iframe', iframeEndTime - CensorshipMeter.iframeStartTime);
+
       var img = $('<img />');
       img.css('display', 'none');
       img.attr('src', '{{.imageUrl}}');
       img.on('load', function() {
         try {
           var imgEndTime = $.now();
-          var iframeTime = CensorshipMeter.iframeEndTime - CensorshipMeter.iframeStartTime;
-          var imgTime = imgEndTime - CensorshipMeter.imgStartTime;
-          var message = iframeTime + ',' + imgTime;
-          CensorshipMeter.submitResult('load-time', message);
+          CensorshipMeter.submitResult('load-time-img', imgEndTime - CensorshipMeter.imgStartTime);
         } catch(err) {
           CensorshipMeter.sendException(err);
         }
