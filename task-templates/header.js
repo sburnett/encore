@@ -5,7 +5,7 @@ CensorshipMeter.maxMessageLength = 64;
 CensorshipMeter.submitResult = function(state, message) {
   this.submitted = state;
   if (message != null) {
-    message = message.substring(0, maxMessageLength);
+    message = String(message).substring(0, this.maxMessageLength);
   }
   var params = {
     "cmh-id": this.measurementId,

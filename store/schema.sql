@@ -12,7 +12,8 @@ CREATE TABLE task_groups (
 	max_duration_seconds integer,
 	max_measurements integer,
 	max_rate_per_second integer,
-	tasks_view information_schema.sql_identifier
+	tasks_view information_schema.sql_identifier,
+	enabled boolean
 );
 CREATE TABLE scheduled_groups (
 	task_group integer references task_groups(id),

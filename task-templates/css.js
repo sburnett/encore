@@ -11,10 +11,11 @@ CensorshipMeter.measure = function() {
       var p = $(this).contents().find('#testParagraph')[0];
       var style = window.getComputedStyle(p);
       var positionStyle = style.getPropertyValue('position');
-      if (positionStyle != 'absolute') {
+      if (positionStyle == 'absolute') {
+        CensorshipMeter.sendSuccess();
+      } else {
         CensorshipMeter.sendFailure();
       }
-      CensorshipMeter.sendSuccess();
     } catch(err) {
       CensorshipMeter.sendException();
     }
