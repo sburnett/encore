@@ -17,10 +17,11 @@ USER=encore
 USERHOME=$(eval echo ~encore)
 DAEMON=$USERHOME/go/bin/encore
 if [ -z "$ENCORE_PORTS" ]; then
-	PORTS=8080 8081
+	PORTS="8080 8081"
 else
 	PORTS=$ENCORE_PORTS
 fi
+DEBUG_PORT=8089
 
 test -x $DAEMON || exit 0
 
@@ -65,11 +66,21 @@ case "$1" in
 		done
 		;;
 
+	debug-start)
+		echo -n "Starting $DESC: "
+		start_encore $DEBUG_PORT
+		;;
+
 	stop)
 		echo -n "Stopping $DESC: "
 		for PORT in $PORTS; do
 			stop_encore $PORT
 		done
+		;;
+
+	debug-stop)
+		echo -n "Stopping $DESC: "
+		stop_encore $DEBUG_PORT
 		;;
 
 	restart)
@@ -83,6 +94,13 @@ case "$1" in
 			sleep 1
 			start_encore $PORT
 		done
+		;;
+
+	debug-restart)
+		echo -n "Restarting $DESC: "
+		stop_encore $DEBUG_PORT
+		sleep 1
+		start_encore $DEBUG_PORT
 		;;
 
 	status)

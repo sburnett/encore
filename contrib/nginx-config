@@ -3,6 +3,10 @@ upstream encore {
 	server 127.0.0.1:8081;
 }
 
+upstream encoredebug {
+	server 127.0.0.1:8089;
+}
+
 server {
 	listen 80;
 	server_name encore.noise.gatech.edu;
@@ -39,3 +43,21 @@ server {
 		proxy_set_header 	X-Real-IP	$remote_addr;
 	}
 }
+
+server {
+	listen 127.0.0.1:8088;
+	server_name encore.noise.gatech.edu;
+
+	access_log /var/log/nginx/debug-encore.noise.gatech.edu.access.log;
+	error_log /var/log/nginx/debug-encore.noise.gatech.edu.error.log;
+
+	location / {
+		proxy_pass http://encoredebug;
+		proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+		proxy_redirect off;
+		proxy_buffering off;
+		proxy_set_header	Host		$host;
+		proxy_set_header 	X-Real-IP	$remote_addr;
+	}
+}
+
