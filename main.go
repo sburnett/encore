@@ -50,6 +50,7 @@ func main() {
 	mux.Handle("/task.js", tasksServer)
 	mux.Handle("/task.html", tasksServer)
 	mux.Handle("/submit", submissionServer)
+	mux.HandleFunc("/version", versionServer)
 	mux.Handle("/stats/", statsServer)
 	mux.HandleFunc("/stats/refer", refererRedirect)
 	server := http.Server{
