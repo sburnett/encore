@@ -65,7 +65,7 @@ func insertTaskGroups(tx *sql.Tx) error {
 		return err
 	}
 
-	result, err := tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups WHERE ((priority = $1 AND id > $2) OR priority > $1) ORDER BY priority, id LIMIT $3", minPriority, minTaskGroup, toSchedule)
+	result, err := tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups WHERE enabled AND ((priority = $1 AND id > $2) OR priority > $1) ORDER BY priority, id LIMIT $3", minPriority, minTaskGroup, toSchedule)
 	if err != nil {
 		log.Printf("error inserting new schedules: %v", err)
 		insertScheduledGroupsErrorCounter.Add(1)
@@ -78,7 +78,7 @@ func insertTaskGroups(tx *sql.Tx) error {
 		return err
 	}
 	toSchedule -= int(rowsAffected)
-	result, err = tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups ORDER BY priority, id LIMIT $1", toSchedule)
+	result, err = tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups WHERE enabled ORDER BY priority, id LIMIT $1", toSchedule)
 	if err != nil {
 		log.Printf("error inserting new schedules: %v", err)
 		insertScheduledGroupsErrorCounter.Add(1)
