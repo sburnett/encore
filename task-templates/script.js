@@ -1,6 +1,6 @@
 {{template "header.js" .}}
 CensorshipMeter.measure = function() {
-  var script = $('<script />');
+  var script = $('<script></script>');
   script.attr('src', '{{.scriptUrl}}');
   script.on('load', function() {
     CensorshipMeter.sendSuccess();

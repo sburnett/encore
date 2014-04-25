@@ -8,9 +8,9 @@ CensorshipMeter.measure = function() {
   iframe.on('load', function() {
     try {
       var endTime = $.now();
-      CensorshipMeter.sendResult("load-time", endTime - CensorshipMeter.startTime);
+      CensorshipMeter.submitResult("load-time", endTime - CensorshipMeter.startTime);
     } catch(err) {
-      CensorshipMeter.sendException();
+      CensorshipMeter.sendException(err);
     }
   });
   CensorshipMeter.startTime = $.now();

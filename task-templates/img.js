@@ -4,10 +4,10 @@ CensorshipMeter.measure = function() {
   img.attr('src', '{{.imageUrl}}');
   img.css('display', 'none');
   img.on('load', function() {
-    CensorshipMeter.sendSuccess()
+    CensorshipMeter.sendSuccess();
   });
   img.on('error', function() {
-    CensorshipMeter.sendFailure()
+    CensorshipMeter.sendFailure();
   });
   img.appendTo('html');
 }
