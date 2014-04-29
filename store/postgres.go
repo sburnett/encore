@@ -367,14 +367,14 @@ func (store *postgresStore) UnparsedResults() <-chan *Result {
 }
 
 func (store *postgresStore) WriteParsedResults(parsedResults <-chan *ParsedResult) {
-	insertIntoResults, err := store.db.Prepare("INSERT INTO parsed_results (result, measurement_id, timestamp, outcome, origin, referer, client_ip, client_location, user_agent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
+	insertIntoResults, err := store.db.Prepare("INSERT INTO parsed_results (result, measurement_id, timestamp, outcome, message, origin, referer, client_ip, client_location, user_agent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")
 	if err != nil {
 		log.Fatalf("error preparing parsed_results insertion statement: %v", err)
 	}
 	defer insertIntoResults.Close()
 
 	for parsedResult := range parsedResults {
-		if _, err := insertIntoResults.Exec(parsedResult.Result, parsedResult.MeasurementId, parsedResult.Timestamp, parsedResult.Outcome, parsedResult.Origin, parsedResult.Referer, parsedResult.ClientIp.String(), parsedResult.ClientLocation, parsedResult.UserAgent); err != nil {
+		if _, err := insertIntoResults.Exec(parsedResult.Result, parsedResult.MeasurementId, parsedResult.Timestamp, parsedResult.Outcome, parsedResult.Message, parsedResult.Origin, parsedResult.Referer, parsedResult.ClientIp.String(), parsedResult.ClientLocation, parsedResult.UserAgent); err != nil {
 			log.Printf("error inserting parsed result: %v", err)
 		}
 	}

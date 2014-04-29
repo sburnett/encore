@@ -55,6 +55,7 @@ CREATE TABLE parsed_results (
 	"timestamp" timestamp,
 	measurement_id text,
 	outcome text,
+	message text,
 	origin text,
 	referer text,
 	client_ip text,

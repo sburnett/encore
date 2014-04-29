@@ -72,6 +72,7 @@ func parseResults(results <-chan *store.Result, geolocator *geoip.GeoIP) <-chan 
 			}
 			measurementId := request.URL.Query().Get("cmh-id")
 			outcome := request.URL.Query().Get("cmh-result")
+			message := request.URL.Query().Get("cmh-message")
 			userAgent := request.Header.Get("User-Agent")
 			origin := request.Header.Get("Origin")
 			referer := request.Header.Get("Referer")
@@ -92,6 +93,7 @@ func parseResults(results <-chan *store.Result, geolocator *geoip.GeoIP) <-chan 
 				Timestamp:      result.Timestamp,
 				MeasurementId:  measurementId,
 				Outcome:        outcome,
+				Message:        message,
 				Origin:         origin,
 				Referer:        referer,
 				ClientIp:       net.ParseIP(host),

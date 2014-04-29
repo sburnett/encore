@@ -46,6 +46,7 @@ type ParsedResult struct {
 	Timestamp      time.Time
 	MeasurementId  string
 	Outcome        string
+	Message        string
 	Origin         string
 	Referer        string
 	ClientIp       net.IP
