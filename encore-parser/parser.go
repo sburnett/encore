@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/abh/geoip"
 	"github.com/sburnett/encore/store"
@@ -108,9 +109,19 @@ func parseResults(results <-chan *store.Result, geolocator *geoip.GeoIP) <-chan 
 }
 
 func main() {
-	var geoipDatabase string
+	var geoipDatabase, logfile string
 	flag.StringVar(&geoipDatabase, "geoip_database", "/usr/share/GeoIP/GeoIP.dat", "Path of GeoIP database")
+	flag.StringVar(&logfile, "logfile", "", "Write logs to this file instead of stdout")
 	flag.Parse()
+
+	if logfile != "" {
+		f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+		if err != nil {
+			log.Fatalf("error opening logfile: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+	}
 
 	log.Printf("starting")
 

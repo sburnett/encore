@@ -1,1 +1,14 @@
-@hourly encore $HOME/go/bin/encore-parser -database="dbname=encore host=/var/run/postgresql sslmode=disable" -geoip_database=$HOME/GeoIP.dat >> /var/log/encore/encore-parse.log 2>&1
+#!/bin/sh
+
+NAME=encore
+USER=encore
+USERHOME=$(eval echo ~encore)
+EXE=$USERHOME/go/bin/encore-parser
+LOGHOME=/var/log/encore
+start-stop-daemon --start --quiet \
+	--pidfile /var/run/$NAME-parser.pid --make-pidfile \
+	--user $USER --chuid $USER \
+	--exec $EXE -- \
+		-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
+		-geoip_database=$USERHOME/GeoIP.dat \
+		-logfile=$LOGHOME/$NAME-parse.log
