@@ -1,0 +1,4 @@
+#!/bin/bash
+
+mkdir -p $HOME/.pgsqlsocket
+socat "UNIX-LISTEN:$HOME/.pgsqlsocket/.s.PGSQL.5432,reuseaddr,fork" EXEC:'ssh encore.noise.gatech.edu sudo -u encore-analysis socat STDIO UNIX-CONNECT\:/var/run/postgresql/.s.PGSQL.5432'
