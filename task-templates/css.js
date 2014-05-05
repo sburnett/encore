@@ -1,25 +1,39 @@
 {{template "header.js" .}}
 CensorshipMeter.measure = function() {
-  var iframe = $('<iframe />');
-  iframe.attr('width', 0);
-  iframe.attr('height', 0);
-  iframe.attr('srcdoc', '<link href="{{.cssUrl}}" rel="stylesheet" type="text/css"><p id="testParagraph"></p>');
-  iframe.css('display', 'none');
-  iframe.on('load', function() {
-    try {
-      var el = $(this);
-      var p = $(this).contents().find('#testParagraph')[0];
-      var style = window.getComputedStyle(p);
-      var positionStyle = style.getPropertyValue('position');
-      if (positionStyle == 'absolute') {
-        CensorshipMeter.sendSuccess();
-      } else {
-        CensorshipMeter.sendFailure();
+  var expRef = $('<span id="{{.cssId}}"></span>');
+  expRef.appendTo('html');
+
+  {{if .controlCssId}}
+  var controlRef = $('<span id="{{.controlCssId}}"></span>');
+  controlRef.appendTo('html');
+  {{end}}
+
+  $.getScript('{{.serverUrl}}/lazyload.js', function() {
+    LazyLoad.css('{{.cssUrl}}', function() {
+      try {
+        var cssTag = $('#{{.cssId}}');
+        var style = window.getComputedStyle(cssTag[0]);
+        var positionStyle = style.getPropertyValue('{{.cssAttribute}}');
+        if (positionStyle == '{{.cssDesiredValue}}') {
+          CensorshipMeter.sendSuccess();
+        } else {
+          CensorshipMeter.sendFailure();
+        }
+
+        {{if .controlCssId}}
+        var controlCssTag = $('#{{.controlCssId}}');
+        var controlStyle = window.getComputedStyle(controlCssTag[0]);
+        var controlPositionStyle = controlStyle.getPropertyValue('{{.cssAttribute}}');
+        if (controlPositionStyle != '{{.cssDesiredValue}}') {
+          CensorshipMeter.submitResult('success-control');
+        } else {
+          CensorshipMeter.submitResult('failure-control');
+        }
+        {{end}}
+      } catch(err) {
+        CensorshipMeter.sendException(err);
       }
-    } catch(err) {
-      CensorshipMeter.sendException();
-    }
+    });
   });
-  iframe.appendTo('html');
 }
 {{template "footer.js" .}}
