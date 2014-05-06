@@ -53,7 +53,8 @@ start_encore() {
 			-server_url="//encore.noise.gatech.edu" \
 			-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
 			-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
-			-static_path=$USERHOME/go/src/github.com/sburnett/encore/static || true
+			-static_path=$USERHOME/go/src/github.com/sburnett/encore/static \
+			-geoip_database=$USERHOME/GeoIP.dat || true
 	echo "$NAME: port $PORT"
 }
 
