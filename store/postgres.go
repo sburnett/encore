@@ -157,7 +157,6 @@ func (store *postgresStore) Tasks(taskRequests <-chan *TaskRequest) {
 		select {
 		case taskRequest := <-taskRequests:
 			queryString := fmt.Sprintf("SELECT id, parameters FROM task_functions.%[1]s($1) ORDER BY random() LIMIT 1", currentTaskFunction)
-			log.Println(queryString)
 			hints := hstore.Hstore{
 				Map: make(map[string]sql.NullString),
 			}
