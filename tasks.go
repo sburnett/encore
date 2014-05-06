@@ -185,6 +185,12 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	hints := parseHints(r)
 
+	clientIp := r.Header.Get("X-Real-Ip")
+	if clientIp == "" {
+		clientIp = r.RemoteAddr
+	}
+	hints["country"], _ = state.Geolocator.GetCountry(clientIp)
+
 	if disabled, ok := hints["disable"]; ok && disabled == "true" {
 		log.Printf("user opted out of Encore")
 		w.WriteHeader(http.StatusOK)
@@ -217,6 +223,7 @@ func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.R
 	taskParameters["measurementId"] = <-state.MeasurementIds
 	taskParameters["hintJQueryAlreadyLoaded"] = hints["jQueryAlreadyLoaded"]
 	taskParameters["hintShowStats"] = hints["showStats"]
+	taskParameters["hintCountry"] = hints["country"]
 	if showStats, ok := hints["showStats"]; !ok || showStats != "false" {
 		count, err := countResultsForReferer(state.CountResultsRequests, r)
 		if err != nil {
