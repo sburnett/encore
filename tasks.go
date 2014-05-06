@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -22,7 +21,7 @@ type measurementsServerState struct {
 	Templates            *template.Template
 	Queries              chan *store.Query
 	Store                store.Store
-	TaskGroups           <-chan []store.Task
+	TaskRequests         chan *store.TaskRequest
 	MeasurementIds       <-chan string
 	CountResultsRequests chan store.CountResultsRequest
 	ServerUrl            string
@@ -47,7 +46,7 @@ var unminifiedCount = metrics.GetOrRegisterCounter("Unminified", nil)
 var responseCount = metrics.GetOrRegisterCounter("TasksServed", nil)
 var noRefererCount = metrics.GetOrRegisterCounter("NoReferer", nil)
 var invalidRefererCount = metrics.GetOrRegisterCounter("InvalidReferer", nil)
-var taskGroupTimeoutCount = metrics.GetOrRegisterCounter("TaskGroupTimeout", nil)
+var taskFunctionTimeoutCount = metrics.GetOrRegisterCounter("TaskFunctionTimeout", nil)
 var missingTaskTypeCount = metrics.GetOrRegisterCounter("MissingTaskType", nil)
 
 func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurementsServerState {
@@ -56,9 +55,10 @@ func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurements
 
 	measurementIds := generateMeasurementIds()
 
-	go s.ScheduleTaskGroups()
+	go s.ScheduleTaskFunctions()
 
-	taskGroups := s.TaskGroups()
+	taskRequests := make(chan *store.TaskRequest)
+	go s.Tasks(taskRequests)
 
 	countResultsRequests := make(chan store.CountResultsRequest)
 	go s.CountResultsForReferrer(countResultsRequests)
@@ -68,7 +68,7 @@ func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurements
 		Templates:            template.Must(template.ParseGlob(filepath.Join(templatesPath, "[a-zA-Z]*"))),
 		Queries:              queries,
 		MeasurementIds:       measurementIds,
-		TaskGroups:           taskGroups,
+		TaskRequests:         taskRequests,
 		CountResultsRequests: countResultsRequests,
 		ServerUrl:            serverUrl,
 	}
@@ -145,18 +145,20 @@ func countResultsForReferer(requests chan store.CountResultsRequest, r *http.Req
 }
 
 func (state *measurementsServerState) selectTask(hints map[string]string) *store.Task {
-	var taskGroup []store.Task
+	taskRequest := store.TaskRequest{
+		Hints:    hints,
+		Response: make(chan *store.Task),
+	}
+
+	state.TaskRequests <- &taskRequest
+
+	var task *store.Task
 	select {
-	case taskGroup = <-state.TaskGroups:
+	case task = <-taskRequest.Response:
 	case <-time.After(time.Second):
-		taskGroupTimeoutCount.Inc(1)
+		taskFunctionTimeoutCount.Inc(1)
 	}
-
-	if taskGroup == nil || len(taskGroup) == 0 {
-		return nil
-	}
-
-	return &taskGroup[rand.Intn(len(taskGroup))]
+	return task
 }
 
 func (state *measurementsServerState) ServeHTTP(w http.ResponseWriter, r *http.Request) {

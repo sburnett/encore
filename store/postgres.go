@@ -18,14 +18,14 @@ type postgresStore struct {
 
 var schedulingInterval = flag.Duration("scheduling_interval", time.Minute, "run the scheduler this often.")
 
-var noPriorGroupsScheduledCounter = metrics.GetOrRegisterCounter("NoPriorGroupsScheduled", nil)
+var noPriorFunctionsScheduledCounter = metrics.GetOrRegisterCounter("NoPriorFunctionsScheduled", nil)
 var lastMaxPriorityErrorCounter = metrics.GetOrRegisterCounter("LastMaxPriorityError", nil)
-var deleteExpiredGroupsErrorCounter = metrics.GetOrRegisterCounter("DeleteExpiredGroupsError", nil)
+var deleteExpiredFunctionsErrorCounter = metrics.GetOrRegisterCounter("DeleteExpiredFunctionsError", nil)
 var countSchedluedTasksErrorCounter = metrics.GetOrRegisterCounter("CountSchedluedTasksError", nil)
-var countScheduledGroupsErrorCounter = metrics.GetOrRegisterCounter("CountScheduledGroupsError", nil)
+var countScheduledFunctionsErrorCounter = metrics.GetOrRegisterCounter("CountScheduledFunctionsError", nil)
 var unfilledScheduleCounter = metrics.GetOrRegisterCounter("UnfilledSchedule", nil)
-var insertScheduledGroupsErrorCounter = metrics.GetOrRegisterCounter("InsertScheduledGroupsError", nil)
-var emptyTaskGroupCounter = metrics.GetOrRegisterCounter("EmptyTaskGroup", nil)
+var insertScheduledFunctionsErrorCounter = metrics.GetOrRegisterCounter("InsertScheduledFunctionsError", nil)
+var emptyTaskFunctionCounter = metrics.GetOrRegisterCounter("EmptyTaskFunction", nil)
 
 func openPostgres(db *sql.DB) Store {
 	return &postgresStore{
@@ -37,57 +37,57 @@ func (store *postgresStore) Close() {
 	store.db.Close()
 }
 
-func insertTaskGroups(tx *sql.Tx) error {
-	var minTaskGroup, minPriority int
-	row := tx.QueryRow("SELECT task_group, priority FROM scheduled_groups ORDER BY scheduled_time DESC, priority DESC, task_group DESC LIMIT 1")
-	if err := row.Scan(&minTaskGroup, &minPriority); err == sql.ErrNoRows {
-		log.Printf("no prior groups scheduled")
-		noPriorGroupsScheduledCounter.Inc(1)
+func insertTaskFunctions(tx *sql.Tx) error {
+	var minTaskFunction, minPriority int
+	row := tx.QueryRow("SELECT task_function, priority FROM scheduled_functions ORDER BY scheduled_time DESC, priority DESC, task_function DESC LIMIT 1")
+	if err := row.Scan(&minTaskFunction, &minPriority); err == sql.ErrNoRows {
+		log.Printf("no prior functions scheduled")
+		noPriorFunctionsScheduledCounter.Inc(1)
 	} else if err != nil {
 		log.Printf("error finding max last priority: %v", err)
 		lastMaxPriorityErrorCounter.Inc(1)
 		return err
 	}
 
-	log.Printf("min task group: %v, min priority: %v", minTaskGroup, minPriority)
+	log.Printf("min task function: %v, min priority: %v", minTaskFunction, minPriority)
 
-	if _, err := tx.Exec("DELETE FROM scheduled_groups WHERE expiration_time < now() OR measurements_remaining <= 0"); err != nil {
-		log.Printf("error deleting expired task groups: %v", err)
-		deleteExpiredGroupsErrorCounter.Inc(1)
+	if _, err := tx.Exec("DELETE FROM scheduled_functions WHERE expiration_time < now() OR measurements_remaining <= 0"); err != nil {
+		log.Printf("error deleting expired task functions: %v", err)
+		deleteExpiredFunctionsErrorCounter.Inc(1)
 		return err
 	}
 
 	var toSchedule int
-	row = tx.QueryRow("SELECT concurrent_groups - scheduled FROM (SELECT count(1) scheduled FROM scheduled_groups) AS c, scheduler_configuration")
+	row = tx.QueryRow("SELECT concurrent_functions - scheduled FROM (SELECT count(1) scheduled FROM scheduled_functions) AS c, scheduler_configuration")
 	if err := row.Scan(&toSchedule); err != nil {
 		log.Printf("error counting scheduled tasks: %v", err)
 		countSchedluedTasksErrorCounter.Inc(1)
 		return err
 	}
 
-	result, err := tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups WHERE enabled AND ((priority = $1 AND id > $2) OR priority > $1) ORDER BY priority, id LIMIT $3", minPriority, minTaskGroup, toSchedule)
+	result, err := tx.Exec("INSERT INTO scheduled_functions (task_function, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_functions WHERE enabled AND ((priority = $1 AND id > $2) OR priority > $1) ORDER BY priority, id LIMIT $3", minPriority, minTaskFunction, toSchedule)
 	if err != nil {
 		log.Printf("error inserting new schedules: %v", err)
-		insertScheduledGroupsErrorCounter.Inc(1)
+		insertScheduledFunctionsErrorCounter.Inc(1)
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("error discovering number of affected rows: %v", err)
-		countScheduledGroupsErrorCounter.Inc(1)
+		countScheduledFunctionsErrorCounter.Inc(1)
 		return err
 	}
 	toSchedule -= int(rowsAffected)
-	result, err = tx.Exec("INSERT INTO scheduled_groups (task_group, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_groups WHERE enabled ORDER BY priority, id LIMIT $1", toSchedule)
+	result, err = tx.Exec("INSERT INTO scheduled_functions (task_function, expiration_time, measurements_remaining, priority, scheduled_time) SELECT id, now() + max_duration_seconds * interval '1 second', max_measurements, priority, now() FROM task_functions WHERE enabled ORDER BY priority, id LIMIT $1", toSchedule)
 	if err != nil {
 		log.Printf("error inserting new schedules: %v", err)
-		insertScheduledGroupsErrorCounter.Inc(1)
+		insertScheduledFunctionsErrorCounter.Inc(1)
 		return err
 	}
 	rowsAffected, err = result.RowsAffected()
 	if err != nil {
 		log.Printf("error discovering number of affected rows: %v", err)
-		countScheduledGroupsErrorCounter.Inc(1)
+		countScheduledFunctionsErrorCounter.Inc(1)
 		return err
 	}
 	toSchedule -= int(rowsAffected)
@@ -98,14 +98,14 @@ func insertTaskGroups(tx *sql.Tx) error {
 	return nil
 }
 
-func (store *postgresStore) ScheduleTaskGroups() {
+func (store *postgresStore) ScheduleTaskFunctions() {
 	schedule := func() {
 		tx, err := store.db.Begin()
 		if err != nil {
 			log.Printf("error starting transaction: %v", err)
 			return
 		}
-		if err := insertTaskGroups(tx); err != nil {
+		if err := insertTaskFunctions(tx); err != nil {
 			tx.Rollback()
 			return
 		}
@@ -121,80 +121,75 @@ func (store *postgresStore) ScheduleTaskGroups() {
 	}
 }
 
-func (store *postgresStore) TaskGroups() <-chan []Task {
-	taskGroups := make(chan []Task)
-	go func() {
-		updateTicker := time.Tick(*schedulingInterval)
+func (store *postgresStore) Tasks(taskRequests <-chan *TaskRequest) {
+	updateTicker := time.Tick(*schedulingInterval)
 
-		selectStmt, err := store.db.Prepare("SELECT id, tasks_view FROM scheduled_groups, task_groups WHERE task_group = id ORDER BY id")
+	selectStmt, err := store.db.Prepare("SELECT task_functions.task_function FROM scheduled_functions JOIN task_functions ON scheduled_functions.task_function = id ORDER BY id")
+	if err != nil {
+		log.Fatalf("error preparing schedules select statement: %v", err)
+	}
+
+	refreshTaskFunctions := func() []string {
+		rows, err := selectStmt.Query()
 		if err != nil {
-			log.Fatalf("error preparing schedules select statement: %v", err)
+			log.Fatalf("error selecting schedules: %v", err)
+		}
+		var taskFunctions []string
+		for rows.Next() {
+			var taskFunction string
+			if err := rows.Scan(&taskFunction); err != nil {
+				log.Fatalf("error scanning task function: %v", err)
+			}
+			taskFunctions = append(taskFunctions, taskFunction)
+		}
+		return taskFunctions
+	}
+
+	currentTaskFunctions := refreshTaskFunctions()
+	functionIdx := 0
+	var currentTaskFunction string
+	for {
+		if len(currentTaskFunctions) > 0 {
+			functionIdx = (functionIdx + 1) % len(currentTaskFunctions)
+			currentTaskFunction = currentTaskFunctions[functionIdx]
 		}
 
-		refreshTaskGroups := func() [][]Task {
-			rows, err := selectStmt.Query()
-			if err != nil {
-				log.Fatalf("error selecting schedules: %v", err)
+		select {
+		case taskRequest := <-taskRequests:
+			queryString := fmt.Sprintf("SELECT id, parameters FROM task_functions.%[1]s($1) ORDER BY random() LIMIT 1", currentTaskFunction)
+			log.Println(queryString)
+			hints := hstore.Hstore{
+				Map: make(map[string]sql.NullString),
 			}
-			var taskGroups [][]Task
-			for rows.Next() {
-				var id int
-				var tasksView string
-				if err := rows.Scan(&id, &tasksView); err != nil {
-					log.Fatalf("error scanning task group: %v", err)
+			for k, v := range taskRequest.Hints {
+				hints.Map[k] = sql.NullString{
+					String: v,
+					Valid:  true,
 				}
-				rows, err := store.db.Query(fmt.Sprintf("SELECT id, parameters FROM task_groups.%s ORDER BY id", tasksView))
-				if err != nil {
-					log.Fatalf("error selecting tasks that match a group: %v", err)
-				}
-				var taskGroup []Task
-				for rows.Next() {
-					var task Task
-					var parameters hstore.Hstore
-					if err := rows.Scan(&task.Id, &parameters); err != nil {
-						log.Printf("error scanning task parameters")
-						continue
-					}
-					task.Parameters = parameters.Map
-					taskGroup = append(taskGroup, task)
-				}
-				if err := rows.Close(); err != nil {
-					log.Printf("error closing rows after selecting matching tasks: %v", err)
-				}
-
-				if taskGroup == nil {
-					log.Printf("skipping schedule with no matching tasks: id %v", id)
-					emptyTaskGroupCounter.Inc(1)
-					continue
-				}
-
-				taskGroups = append(taskGroups, taskGroup)
 			}
-			if err := rows.Close(); err != nil {
-				log.Printf("error closing rows after refreshing schedules: %v", err)
+			row := store.db.QueryRow(queryString, hints)
+			var task *Task
+			var id int
+			var parameters hstore.Hstore
+			if err := row.Scan(&id, &parameters); err != nil {
+				log.Printf("error scanning task parameters: %v", err)
+			} else {
+				task = new(Task)
+				task.Id = id
+				task.Parameters = parameters.Map
 			}
-			return taskGroups
-		}
-
-		groups := refreshTaskGroups()
-		groupIdx := 0
-		for {
-			var currentTaskGroup []Task
-			if len(groups) > 0 {
-				groupIdx = (groupIdx + 1) % len(groups)
-				currentTaskGroup = groups[groupIdx]
-			}
-
 			select {
-			case taskGroups <- currentTaskGroup:
-			case <-updateTicker:
-				groups = refreshTaskGroups()
+			case taskRequest.Response <- task:
+			case <-time.After(time.Second):
+				log.Printf("task response timed out")
 			}
-		}
+			close(taskRequest.Response)
 
-		close(taskGroups)
-	}()
-	return taskGroups
+		case <-updateTicker:
+			currentTaskFunctions = refreshTaskFunctions()
+			functionIdx = 0
+		}
+	}
 }
 
 func (store *postgresStore) WriteTasks(tasks <-chan *Task) {

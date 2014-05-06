@@ -1,29 +1,29 @@
 CREATE EXTENSION hstore;
 
-CREATE SCHEMA task_groups;
+CREATE SCHEMA task_functions;
 
 CREATE TABLE tasks (
 	id serial primary key,
 	parameters hstore
 );
-CREATE TABLE task_groups (
+CREATE TABLE task_functions (
 	id serial primary key,
 	priority integer,
 	max_duration_seconds integer,
 	max_measurements integer,
 	max_rate_per_second integer,
-	tasks_view information_schema.sql_identifier,
+	task_function information_schema.sql_identifier,
 	enabled boolean
 );
-CREATE TABLE scheduled_groups (
-	task_group integer references task_groups(id),
+CREATE TABLE scheduled_functions (
+	task_function integer references task_functions(id),
 	expiration_time timestamp,
 	measurements_remaining integer,
 	priority integer,
 	scheduled_time timestamp
 );
 CREATE TABLE scheduler_configuration (
-	concurrent_groups integer
+	concurrent_functions integer
 );
 CREATE TABLE queries (
 	id serial primary key,

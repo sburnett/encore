@@ -13,6 +13,11 @@ type Task struct {
 	Parameters map[string]sql.NullString
 }
 
+type TaskRequest struct {
+	Hints    map[string]string
+	Response chan *Task
+}
+
 type Query struct {
 	Id             int
 	Timestamp      time.Time
@@ -86,8 +91,8 @@ type ResultsPerCountryResponse struct {
 
 type Store interface {
 	Close()
-	ScheduleTaskGroups()
-	TaskGroups() <-chan []Task
+	ScheduleTaskFunctions()
+	Tasks(<-chan *TaskRequest)
 	WriteTasks(tasks <-chan *Task)
 	WriteQueries(queries <-chan *Query)
 	Queries() <-chan *Query
