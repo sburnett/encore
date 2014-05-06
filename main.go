@@ -14,7 +14,7 @@ import (
 var debugMode bool
 
 func main() {
-	var listenAddress, serverUrl, taskTemplatesPath, statsTemplatesPath, staticPath, cubeCollectionType, logfile string
+	var listenAddress, serverUrl, taskTemplatesPath, statsTemplatesPath, staticPath, cubeCollectionType, logfile, geoipDatabase string
 	flag.BoolVar(&debugMode, "debug", false, "Enable parsing of cmh- debug parameters in requests")
 	flag.StringVar(&listenAddress, "listen_address", "127.0.0.1:8080", "")
 	flag.StringVar(&serverUrl, "server_url", "http://localhost:8080", "URL that clients should use to contact this server.")
@@ -23,6 +23,7 @@ func main() {
 	flag.StringVar(&staticPath, "static_path", "static", "Path to static content to serve")
 	flag.StringVar(&cubeCollectionType, "cube_collection_type", "encore", "Use this label for statistics we send to Cube")
 	flag.StringVar(&logfile, "logfile", "", "Write logs to this file instead of stdout")
+	flag.StringVar(&geoipDatabase, "geoip_database", "/usr/share/GeoIP/GeoIP.dat", "Path of GeoIP database")
 	flag.Parse()
 
 	printVersionIfAsked()
@@ -45,7 +46,7 @@ func main() {
 	s := store.Open()
 	defer s.Close()
 
-	tasksServer := NewTaskServer(s, serverUrl, taskTemplatesPath)
+	tasksServer := NewTaskServer(s, serverUrl, taskTemplatesPath, geoipDatabase)
 	submissionServer := NewSubmissionServer(s)
 	statsServer := NewStatsServer(s, statsTemplatesPath)
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"bitbucket.org/maxhauser/jsmin"
+	"github.com/abh/geoip"
 	"github.com/rcrowley/go-metrics"
 	"github.com/sburnett/encore/store"
 )
@@ -25,6 +26,7 @@ type measurementsServerState struct {
 	MeasurementIds       <-chan string
 	CountResultsRequests chan store.CountResultsRequest
 	ServerUrl            string
+	Geolocator           *geoip.GeoIP
 }
 
 const hintPrefix string = "cmh-"
@@ -49,7 +51,7 @@ var invalidRefererCount = metrics.GetOrRegisterCounter("InvalidReferer", nil)
 var taskFunctionTimeoutCount = metrics.GetOrRegisterCounter("TaskFunctionTimeout", nil)
 var missingTaskTypeCount = metrics.GetOrRegisterCounter("MissingTaskType", nil)
 
-func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurementsServerState {
+func NewTaskServer(s store.Store, serverUrl, templatesPath, geoipDatabase string) *measurementsServerState {
 	queries := make(chan *store.Query)
 	go s.WriteQueries(queries)
 
@@ -63,6 +65,11 @@ func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurements
 	countResultsRequests := make(chan store.CountResultsRequest)
 	go s.CountResultsForReferrer(countResultsRequests)
 
+	geolocator, err := geoip.Open(geoipDatabase)
+	if err != nil {
+		log.Fatalf("error opening geoip database: %v", err)
+	}
+
 	return &measurementsServerState{
 		Store:                s,
 		Templates:            template.Must(template.ParseGlob(filepath.Join(templatesPath, "[a-zA-Z]*"))),
@@ -71,6 +78,7 @@ func NewTaskServer(s store.Store, serverUrl, templatesPath string) *measurements
 		TaskRequests:         taskRequests,
 		CountResultsRequests: countResultsRequests,
 		ServerUrl:            serverUrl,
+		Geolocator:           geolocator,
 	}
 }
 
