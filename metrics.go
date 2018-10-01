@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/influxdb"
+	//"github.com/rcrowley/go-metrics/influxdb"
+	"github.com/vrischmann/go-metrics-influxdb"
 )
 
 var influxDbHost, influxDbDatabase, influxDbUsername, influxDbPassword string
@@ -24,12 +25,12 @@ func init() {
 }
 
 func initMetrics() {
-	go influxdb.Influxdb(metrics.DefaultRegistry, influxDbExportInterval, &influxdb.Config{
-		Host:     influxDbHost,
-		Database: influxDbDatabase,
-		Username: influxDbUsername,
-		Password: influxDbPassword,
-	})
+	go influxdb.InfluxDB(metrics.DefaultRegistry, influxDbExportInterval, 
+		influxDbHost,
+		influxDbDatabase,
+		influxDbUsername,
+		influxDbPassword,
+	)
 	if printMetrics {
 		go metrics.Log(metrics.DefaultRegistry, 1e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
