@@ -47,12 +47,12 @@ start_encore() {
 		--user $USER --chuid $USER \
 		--exec $DAEMON -- \
 			-cube_export=false \
-			-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
+			-database="dbname=encore host=ns2.cs.princeton.edu sslmode=disable" \
 			-logfile=${LOGHOME}/$NAME-$PORT.log \
 			-listen_address="127.0.0.1:$PORT" \
-			-server_url="//encore.noise.gatech.edu" \
-			-task_templates_path=$USERHOME/go/src/github.com/sburnett/encore/task-templates \
-			-stats_templates_path=$USERHOME/go/src/github.com/sburnett/encore/stats-templates \
+			-server_url="//encoreenco.re" \
+			-task_templates_path=$USERHOME/go/src/github.com/ggmartins/encore/task-templates \
+			-stats_templates_path=$USERHOME/go/src/github.com/ggmartins/encore/stats-templates \
 			-static_path=$USERHOME/go/src/github.com/sburnett/encore/static \
 			-geoip_database=$USERHOME/GeoIP.dat || true
 	echo "$NAME: port $PORT"
