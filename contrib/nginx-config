@@ -9,10 +9,10 @@ upstream encoredebug {
 
 server {
 	listen 80;
-	server_name encore.noise.gatech.edu;
+	server_name encoreenco.re;
 
-	access_log /var/log/nginx/encore.noise.gatech.edu.access.log;
-	error_log /var/log/nginx/encore.noise.gatech.edu.error.log;
+	access_log /var/log/nginx/encoreenco.re.access.log;
+	error_log /var/log/nginx/encoreenco.re.error.log;
 
 	location / {
 		proxy_pass http://encore;
@@ -26,13 +26,13 @@ server {
 
 server {
 	listen 443 ssl;
-	server_name encore.noise.gatech.edu;
+	server_name encoreenco.re;
 
-	ssl_certificate /etc/ssl/certs/encore_new.crt;
-	ssl_certificate_key /etc/ssl/private/encore.key;
+	ssl_certificate /srv/encore/config/etc/ssl/certs/encore_new.crt;
+	ssl_certificate_key /srv/encore/config/etc/ssl/private/encore.key;
 
-	access_log /var/log/nginx/encore.noise.gatech.edu.443.access.log;
-	error_log /var/log/nginx/encore.noise.gatech.edu.443.error.log;
+	access_log /var/log/nginx/encoreenco.re.443.access.log;
+	error_log /var/log/nginx/encoreenco.re.443.error.log;
 
 	location / {
 		proxy_pass http://encore;
@@ -46,10 +46,10 @@ server {
 
 server {
 	listen 127.0.0.1:8088;
-	server_name encore.noise.gatech.edu;
+	server_name encoreenco.re;
 
-	access_log /var/log/nginx/debug-encore.noise.gatech.edu.access.log;
-	error_log /var/log/nginx/debug-encore.noise.gatech.edu.error.log;
+	access_log /var/log/nginx/debug-encoreenco.re.access.log;
+	error_log /var/log/nginx/debug-encoreenco.re.error.log;
 
 	location / {
 		proxy_pass http://encoredebug;
