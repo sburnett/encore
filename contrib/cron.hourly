@@ -9,6 +9,6 @@ start-stop-daemon --start --quiet \
 	--pidfile /var/run/$NAME-parser.pid --make-pidfile \
 	--user $USER --chuid $USER \
 	--exec $EXE -- \
-		-database="dbname=encore host=/var/run/postgresql sslmode=disable" \
+		-database="dbname=encore host=ns2.cs.princeton.edu sslmode=disable" \
 		-geoip_database=$USERHOME/GeoIP.dat \
 		-logfile=$LOGHOME/$NAME-parse.log

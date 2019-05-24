@@ -53,7 +53,7 @@ start_encore() {
 			-server_url="//encoreenco.re" \
 			-task_templates_path=$USERHOME/go/src/github.com/ggmartins/encore/task-templates \
 			-stats_templates_path=$USERHOME/go/src/github.com/ggmartins/encore/stats-templates \
-			-static_path=$USERHOME/go/src/github.com/sburnett/encore/static \
+			-static_path=$USERHOME/go/src/github.com/ggmartins/encore/static \
 			-geoip_database=$USERHOME/GeoIP.dat || true
 	echo "$NAME: port $PORT"
 }
